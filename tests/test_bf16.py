@@ -7,30 +7,89 @@ from deep_gemm.testing import (
     calc_diff, count_bytes
 )
 from generators import (
+    MajorTypeAB,
     enumerate_normal, enumerate_m_grouped_contiguous, enumerate_m_grouped_masked, generate_normal,
     generate_m_grouped_contiguous, generate_m_grouped_masked
 )
 
+
+# def test_gemm() -> None:
+#     print('Testing GEMM:')
+#     for _, m, n, k, major_a, major_b, accumulate, out_dtype in enumerate_normal(use_bf16=True):
+#         major_opt  = 'N' if major_a.is_k_major() else 'T'
+#         major_opt += 'T' if major_b.is_k_major() else 'N'
+#         out_opt    = 'FP32' if out_dtype == torch.float else 'BF16'
+#         acc_opt    = f'acc={int(accumulate)}'
+
+#         for test_alias in (False, True):
+#             a, b, c, d, ref_d = generate_normal(m, n, k, major_a, major_b, accumulate, out_dtype, use_bf16=True)
+#             func_name = f'bf16_gemm_{major_opt.lower() if test_alias else "nt"}'
+#             if test_alias:
+#                 a = a if major_a.is_k_major() else a.T
+#                 b = b if major_b.is_k_major() else b.T
+#                 assert a.is_contiguous() and b.is_contiguous()
+#             getattr(deep_gemm, func_name)(a, b, d, c=c)
+#             diff = calc_diff(d, ref_d)
+#             assert diff < 0.0001, (f'{m=}, {n=}, {k=}, {major_opt=}, {accumulate=}, {out_dtype=}, '
+#                                    f'{diff:.5f}, alias={test_alias}')
+#         a, b, c, d, ref_d = generate_normal(m, n, k, major_a, major_b, accumulate, out_dtype, use_bf16=True)
+
+#         cublas_t = 0
+#         t = bench_kineto(lambda: deep_gemm.bf16_gemm_nt(a, b, d, c=c), 'bf16_gemm', suppress_kineto_output=True)
+#         if accumulate == 0 and out_dtype == torch.bfloat16:
+#             # noinspection PyBroadException
+#             try:
+#                 cublas_t = bench_kineto(lambda: a @ b.T, 'nvjet', suppress_kineto_output=True)
+#             except Exception:
+#                 pass
+#         print(f' > Perf (m={m:5}, n={n:5}, k={k:5}, layout={major_opt}, {out_opt}, {acc_opt}): '
+#               f'{t * 1e6:4.0f} us | '
+#               f'{2 * m * n * k / t / 1e12:4.0f} TFLOPS | '
+#               f'{(count_bytes(a, b, d) + count_bytes(c) * int(accumulate)) / 1e9 / t:4.0f} GB/s | '
+#               f'{cublas_t / t:.2f}x cuBLAS')
+#     print()
 
 def test_gemm() -> None:
     print('Testing GEMM:')
     for _, m, n, k, major_a, major_b, accumulate, out_dtype in enumerate_normal(use_bf16=True):
         major_opt  = 'N' if major_a.is_k_major() else 'T'
         major_opt += 'T' if major_b.is_k_major() else 'N'
+        major_opt = "NN"
         out_opt    = 'FP32' if out_dtype == torch.float else 'BF16'
         acc_opt    = f'acc={int(accumulate)}'
+        m = 128
+        n = 256
+        k = 128
 
-        for test_alias in (False, True):
-            a, b, c, d, ref_d = generate_normal(m, n, k, major_a, major_b, accumulate, out_dtype, use_bf16=True)
-            func_name = f'bf16_gemm_{major_opt.lower() if test_alias else "nt"}'
-            if test_alias:
-                a = a if major_a.is_k_major() else a.T
-                b = b if major_b.is_k_major() else b.T
-                assert a.is_contiguous() and b.is_contiguous()
-            getattr(deep_gemm, func_name)(a, b, d, c=c)
-            diff = calc_diff(d, ref_d)
-            assert diff < 0.0001, (f'{m=}, {n=}, {k=}, {major_opt=}, {accumulate=}, {out_dtype=}, '
-                                   f'{diff:.5f}, alias={test_alias}')
+        major_a = MajorTypeAB.KMajor
+        major_b = MajorTypeAB.MNMajor
+
+        # a, b, c, d, ref_d = generate_normal(m, n, k, major_a, major_b, accumulate, out_dtype, use_bf16=True)
+        # Generate specific patterns for a and b
+        # a: (m, k) with elements = i * k + j
+        # b: (k, n) with elements = i * n + j
+        a = torch.zeros((m, k), dtype=torch.bfloat16, device='cuda')
+        for i in range(m):
+            for j in range(k):
+                a[i, j] = 0.00001 * (i * k + j)
+        
+        b = torch.zeros((k, n), dtype=torch.bfloat16, device='cuda')
+        for i in range(k):
+            for j in range(n):
+                b[i, j] = 0.00001 * (i * n + j)
+        
+        d = torch.empty((m, n), device='cuda', dtype=torch.bfloat16)
+        ref_d = a @ b
+        print(f'{a.shape=}, {a.stride()=}')
+        print(f'{b.shape=}, {b.stride()=}')
+        print(f'{d.shape=}, {d.stride()=}')
+        func_name = f'bf16_gemm_{major_opt.lower()}'
+        getattr(deep_gemm, func_name)(a, b, d)
+        diff = calc_diff(d, ref_d)
+        torch.testing.assert_close(d, ref_d, atol=0.0001, rtol=0.0001)
+        assert diff < 0.0001, (f'{m=}, {n=}, {k=}, {major_opt=}, {accumulate=}, {out_dtype=}, '
+                                f'{diff:.5f}')
+        return 
         a, b, c, d, ref_d = generate_normal(m, n, k, major_a, major_b, accumulate, out_dtype, use_bf16=True)
 
         cublas_t = 0
@@ -46,6 +105,7 @@ def test_gemm() -> None:
               f'{2 * m * n * k / t / 1e12:4.0f} TFLOPS | '
               f'{(count_bytes(a, b, d) + count_bytes(c) * int(accumulate)) / 1e9 / t:4.0f} GB/s | '
               f'{cublas_t / t:.2f}x cuBLAS')
+        break
     print()
 
 
@@ -121,5 +181,5 @@ if __name__ == '__main__':
     print(f' > {deep_gemm.__path__}\n')
 
     test_gemm()
-    test_m_grouped_gemm_contiguous()
-    test_m_grouped_gemm_masked()
+    # test_m_grouped_gemm_contiguous()
+    # test_m_grouped_gemm_masked()

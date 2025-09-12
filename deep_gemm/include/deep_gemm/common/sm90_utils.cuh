@@ -2,6 +2,7 @@
 
 #include <cute/arch/mma_sm90_gmma.hpp>
 #include <cute/arch/mma_sm90_gmma_ext.hpp>
+#include <cute/arch/copy_sm90_tma.hpp>
 
 namespace deep_gemm::sm90 {
 
@@ -88,42 +89,42 @@ struct BF16MMA {
     static constexpr int kNumAccum = M * N / 128;
 };
 
-template <int N>
+template <int N, auto MajorA = cute::SM90::GMMA::Major::K, auto MajorB = cute::SM90::GMMA::Major::K>
 struct BF16MMASelector {
 
     static constexpr auto select_mma() {
         using namespace cute::SM90::GMMA;
-        if constexpr (N == 16) return MMA_64x16x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 24) return MMA_64x24x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 32) return MMA_64x32x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 40) return MMA_64x40x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 48) return MMA_64x48x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 56) return MMA_64x56x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 64) return MMA_64x64x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 72) return MMA_64x72x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 80) return MMA_64x80x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 88) return MMA_64x88x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 96) return MMA_64x96x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 104) return MMA_64x104x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 112) return MMA_64x112x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 120) return MMA_64x120x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 128) return MMA_64x128x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 136) return MMA_64x136x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 144) return MMA_64x144x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 152) return MMA_64x152x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 160) return MMA_64x160x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 168) return MMA_64x168x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 176) return MMA_64x176x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 184) return MMA_64x184x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 192) return MMA_64x192x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 200) return MMA_64x200x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 208) return MMA_64x208x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 216) return MMA_64x216x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 224) return MMA_64x224x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 232) return MMA_64x232x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 240) return MMA_64x240x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 248) return MMA_64x248x16_F32BF16BF16_SS<Major::K, Major::K>();
-        if constexpr (N == 256) return MMA_64x256x16_F32BF16BF16_SS<Major::K, Major::K>();
+        if constexpr (N == 16) return MMA_64x16x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 24) return MMA_64x24x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 32) return MMA_64x32x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 40) return MMA_64x40x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 48) return MMA_64x48x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 56) return MMA_64x56x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 64) return MMA_64x64x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 72) return MMA_64x72x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 80) return MMA_64x80x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 88) return MMA_64x88x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 96) return MMA_64x96x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 104) return MMA_64x104x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 112) return MMA_64x112x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 120) return MMA_64x120x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 128) return MMA_64x128x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 136) return MMA_64x136x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 144) return MMA_64x144x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 152) return MMA_64x152x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 160) return MMA_64x160x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 168) return MMA_64x168x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 176) return MMA_64x176x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 184) return MMA_64x184x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 192) return MMA_64x192x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 200) return MMA_64x200x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 208) return MMA_64x208x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 216) return MMA_64x216x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 224) return MMA_64x224x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 232) return MMA_64x232x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 240) return MMA_64x240x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 248) return MMA_64x248x16_F32BF16BF16_SS<MajorA, MajorB>();
+        if constexpr (N == 256) return MMA_64x256x16_F32BF16BF16_SS<MajorA, MajorB>();
     }
 
     static constexpr auto select_type() {
@@ -212,10 +213,19 @@ __device__ GmmaDescriptor make_smem_desc(PointerType smem_ptr, const int& layout
     return desc;
 }
 
+template <cute::SM90::GMMA::Major kMajor>
 __device__ __forceinline__ void
 tma_copy(void const* desc_ptr, uint64_t* barrier_ptr, void* smem_ptr,
-         const uint32_t& crd_0, const uint32_t& crd_1, const uint32_t& num_tma_multicast = 1) {
+         const uint32_t& crd_mn, const uint32_t& crd_k, const uint32_t& num_tma_multicast = 1) {
     constexpr auto cache_hint = static_cast<uint64_t>(cute::TMA::CacheHintSm90::EVICT_NORMAL);
+    uint32_t crd_0, crd_1;
+    if constexpr (kMajor == cute::SM90::GMMA::Major::K) {
+        crd_0 = crd_k;
+        crd_1 = crd_mn;
+    } else {
+        crd_0 = crd_mn;
+        crd_1 = crd_k;
+    }
     if (num_tma_multicast == 1) {
         cute::SM90_TMA_LOAD_2D::copy(desc_ptr, barrier_ptr, cache_hint, smem_ptr, crd_0, crd_1);
     } else if (cute::block_rank_in_cluster() == 0) {

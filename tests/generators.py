@@ -59,9 +59,6 @@ def get_out_dtype() -> tuple:
 
 
 def get_major_ab(freeze_a: bool) -> tuple:
-    # TODO: test other major-ness for SM90 BF16 GEMMs
-    if get_arch_major() == 9:
-        return ((MajorTypeAB.KMajor,  MajorTypeAB.KMajor), )
     if freeze_a:
         return (MajorTypeAB.KMajor, MajorTypeAB.KMajor), (MajorTypeAB.KMajor, MajorTypeAB.MNMajor)
     return (MajorTypeAB.KMajor,  MajorTypeAB.KMajor), (MajorTypeAB.KMajor,  MajorTypeAB.MNMajor), \
@@ -143,8 +140,8 @@ def generate_normal(m: int, n: int, k: int,
     ref_d = (a.float() @ b.float().t() + (c if accumulate else 0)).to(out_dtype)
 
     if use_bf16:
-        a = a if major_a.is_k_major() else a.T.contiguous().T
-        b = b if major_b.is_k_major() else b.T.contiguous().T
+        a = a if major_a.is_k_major() else a.T.contiguous()
+        b = b if major_b.is_k_major() else b.T.contiguous()
         return a, b, c, d, ref_d
 
     a_fp8, b_fp8 = per_token_cast_to_fp8(a, use_ue8m0=use_ue8m0), per_block_cast_to_fp8(b, use_ue8m0=use_ue8m0)

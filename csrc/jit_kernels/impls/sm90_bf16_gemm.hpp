@@ -34,6 +34,7 @@ using namespace deep_gemm;
 
 static void __instantiate_kernel() {{
     auto ptr = reinterpret_cast<void*>(&sm90_bf16_gemm_impl<
+        {}, {},
         {}, {}, {},
         {},
         {}, {}, {},
@@ -46,6 +47,7 @@ static void __instantiate_kernel() {{
 }};
 )",
         // TODO: add CD dtype
+        to_string(umma_major_to_gmma_major(args.gemm_config.major_a)), to_string(umma_major_to_gmma_major(args.gemm_config.major_b)),
         get_compiled_dim(args.m, 'm', args.compiled_dims), get_compiled_dim(args.n, 'n', args.compiled_dims), get_compiled_dim(args.k, 'k', args.compiled_dims),
         args.num_groups,
         args.gemm_config.block_m, args.gemm_config.block_n, args.gemm_config.block_k,
@@ -74,7 +76,7 @@ static void sm90_bf16_gemm(const torch::Tensor& a,
                            const cute::UMMA::Major& major_a, const cute::UMMA::Major& major_b,
                            const std::string& compiled_dims) {
     DG_HOST_ASSERT(not c.has_value() and d.scalar_type() == torch::kBFloat16);
-    DG_HOST_ASSERT(major_a == cute::UMMA::Major::K and major_b == cute::UMMA::Major::K);
+    // DG_HOST_ASSERT(major_a == cute::UMMA::Major::K and major_b == cute::UMMA::Major::K);
     DG_HOST_ASSERT(k % 64 == 0);
 
     const auto& config = get_best_config<SM90ArchSpec>(
@@ -82,7 +84,7 @@ static void sm90_bf16_gemm(const torch::Tensor& a,
         m, n, k, 1, major_a, major_b,
         torch::kBFloat16, d.scalar_type(), c.has_value(),
         device_runtime->get_num_sms());
-
+    
     // Requires no TMA splits
     const auto& tensor_map_a = make_tma_a_desc(major_a, a, m, k,
                                                SM90ArchSpec::get_ab_load_block_m(config.multicast_config, config.block_m),
@@ -99,6 +101,14 @@ static void sm90_bf16_gemm(const torch::Tensor& a,
                                                 SM90ArchSpec::get_cd_store_block_n(config.block_n),
                                                 static_cast<int>(d.stride(-2)), 1,
                                                 config.smem_config.swizzle_cd_mode);
+
+    std::cout << "config.swizzle_a_mode: " << config.smem_config.swizzle_a_mode << std::endl;
+    std::cout << "config.swizzle_b_mode: " << config.smem_config.swizzle_b_mode << std::endl;
+    std::cout << "config.swizzle_cd_mode: " << config.smem_config.swizzle_cd_mode << std::endl;
+
+    std::cout << "block_m: " << config.block_m << std::endl;
+    std::cout << "block_n: " << config.block_n << std::endl;
+    std::cout << "block_k: " << config.block_k << std::endl;
 
     // Launch
     const SM90BF16GemmRuntime::Args& args = {

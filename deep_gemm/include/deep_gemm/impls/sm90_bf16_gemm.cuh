@@ -13,12 +13,14 @@
 #include <deep_gemm/common/utils.cuh>
 #include <deep_gemm/common/scheduler.cuh>
 #include <deep_gemm/common/sm90_utils.cuh>
+#include <cute/arch/mma_sm90_gmma.hpp>
 
 namespace deep_gemm {
 
 using namespace deep_gemm::sm90;
 
-template <uint32_t SHAPE_M, uint32_t SHAPE_N, uint32_t SHAPE_K,
+template <cute::SM90::GMMA::Major kMajorA, cute::SM90::GMMA::Major kMajorB, 
+          uint32_t SHAPE_M, uint32_t SHAPE_N, uint32_t SHAPE_K,
           uint32_t kNumGroups,
           uint32_t BLOCK_M, uint32_t BLOCK_N, uint32_t BLOCK_K,
           uint32_t kSwizzleDMode,
@@ -34,7 +36,7 @@ sm90_bf16_gemm_impl(int* grouped_layout,
                     const __grid_constant__ cute::TmaDescriptor tensor_map_d) {
 #if (defined(__CUDA_ARCH__) and (__CUDA_ARCH__ >= 900)) or defined(__CLION_IDE__)
     // Types
-    using WGMMA = typename BF16MMASelector<BLOCK_N>::type;
+    using WGMMA = typename BF16MMASelector<BLOCK_N, kMajorA, kMajorB>::type;
     using Barrier = cutlass::arch::ClusterTransactionBarrier;
     DG_STATIC_ASSERT(BLOCK_M % WGMMA::M == 0, "Invalid block size");
 
@@ -155,14 +157,19 @@ sm90_bf16_gemm_impl(int* grouped_layout,
 
                         constexpr bool kWithGroupOffsetA = kGemmType == GemmType::MGroupedMasked;
                         auto& full_barrier = *full_barriers[s];
+                        uint32_t m_idx = scheduler.template get_global_idx<kWithGroupOffsetA, KGroupedIndexType::MN>(
+                            shape_m, BLOCK_M, m_block_idx);
+                        uint32_t n_idx = scheduler.template get_global_idx<(kMajorB == cute::SM90::GMMA::Major::K), KGroupedIndexType::MN>(
+                            shape_n, BLOCK_N, n_block_idx, m_block_idx);
+                        
+                        DG_STATIC_ASSERT(kGemmType == GemmType::Normal or kGemmType == GemmType::KGroupedContiguous or kMajorA == cute::SM90::GMMA::Major::K, "Invalid major");
+
                         uint32_t k_idx = k_iter * kFullKOfAllStages + s * BLOCK_K;
 
-                        tma_copy(&tensor_map_a, reinterpret_cast<uint64_t*>(&full_barrier),
-                                 smem_a[s], k_idx, scheduler.get_global_idx<kWithGroupOffsetA>(shape_m, BLOCK_M, m_block_idx),
-                                 num_tma_multicast_a);
-                        tma_copy(&tensor_map_b, reinterpret_cast<uint64_t*>(&full_barrier),
-                                 smem_b[s], k_idx, scheduler.get_global_idx<true>(shape_n, BLOCK_N, n_block_idx, m_block_idx),
-                                 num_tma_multicast_b);
+                        tma_copy<kMajorA>(&tensor_map_a, reinterpret_cast<uint64_t*>(&full_barrier),
+                                smem_a[s], m_idx, k_idx, num_tma_multicast_a);
+                        tma_copy<kMajorB>(&tensor_map_b, reinterpret_cast<uint64_t*>(&full_barrier),
+                                smem_b[s], n_idx, k_idx, num_tma_multicast_b);
                         full_barrier.arrive_and_expect_tx(SMEM_A_SIZE_PER_STAGE + SMEM_B_SIZE_PER_STAGE);
                     }
 
@@ -229,7 +236,7 @@ sm90_bf16_gemm_impl(int* grouped_layout,
                         #pragma unroll
                         for (uint32_t k = 0; k < BLOCK_K / WGMMA::K; ++ k) {
                             auto desc_a = make_smem_desc(smem_a[s] + (math_wg_idx * WGMMA::M + m_offset) * BLOCK_K + k * WGMMA::K, 1);
-                            auto desc_b = make_smem_desc(smem_b[s] + k * WGMMA::K, 1);
+                            auto desc_b = make_smem_desc(smem_b[s] + (k * WGMMA::K) * BLOCK_N, 1);
                             WGMMA::wgmma(desc_a, desc_b, shifted_accum, 1);
                         }
                         warpgroup_commit_batch();
@@ -325,8 +332,8 @@ sm90_bf16_gemm_impl(int* grouped_layout,
                 auto in_block_n_offset = threadIdx.x * TMA_D_BLOCK_N;
                 auto smem_ptr = smem_d + in_block_n_offset * BLOCK_M;
                 cute::SM90_TMA_STORE_2D::copy(&tensor_map_d, smem_ptr,
-                                              n_block_idx * BLOCK_N + in_block_n_offset,
-                                              scheduler.get_global_idx<kWithGroupOffsetD>(shape_m, BLOCK_M, m_block_idx));
+                    n_block_idx * BLOCK_N + in_block_n_offset,
+                    scheduler.get_global_idx<kWithGroupOffsetD>(shape_m, BLOCK_M, m_block_idx));
                 cute::tma_store_arrive();
             }
             __syncwarp();

@@ -5,6 +5,7 @@
 
 #include "../../utils/math.hpp"
 #include "../../utils/exception.hpp"
+#include <cute/arch/mma_sm90_gmma.hpp>
 
 namespace deep_gemm {
 
@@ -28,6 +29,14 @@ static std::string to_string(const cute::UMMA::Major& major) {
     switch (major) {
         case cute::UMMA::Major::K:  return "cute::UMMA::Major::K";
         case cute::UMMA::Major::MN: return "cute::UMMA::Major::MN";
+    }
+    DG_HOST_UNREACHABLE("Unknown major");
+}
+
+static std::string to_string(const cute::SM90::GMMA::Major& major) {
+    switch (major) {
+        case cute::SM90::GMMA::Major::K:  return "cute::SM90::GMMA::Major::K";
+        case cute::SM90::GMMA::Major::MN: return "cute::SM90::GMMA::Major::MN";
     }
     DG_HOST_UNREACHABLE("Unknown major");
 }
@@ -168,6 +177,10 @@ static CUtensorMap make_tma_sf_desc(const cute::UMMA::Major& major,
                             block_mn, 1,
                             shape_mn,
                             swizzle_mode);
+}
+
+static cute::SM90::GMMA::Major umma_major_to_gmma_major(const cute::UMMA::Major& major) {
+    return major == cute::UMMA::Major::K ? cute::SM90::GMMA::Major::K : cute::SM90::GMMA::Major::MN;
 }
 
 } // namespace deep_gemm

@@ -310,6 +310,7 @@ static void bf16_gemm_nn(const torch::Tensor& a,
                          const torch::Tensor& d,
                          const std::optional<torch::Tensor>& c,
                          const std::string& compiled_dims) {
+    std::cout << "call bf16_gemm_nn" << std::endl;
     bf16_gemm_nt(a, b.transpose(0, 1), d, c, compiled_dims);
 }
 
