@@ -236,7 +236,7 @@ sm90_bf16_gemm_impl(int* grouped_layout,
                         #pragma unroll
                         for (uint32_t k = 0; k < BLOCK_K / WGMMA::K; ++ k) {
                             auto desc_a = make_smem_desc(smem_a[s] + (math_wg_idx * WGMMA::M + m_offset) * BLOCK_K + k * WGMMA::K, 1);
-                            auto desc_b = make_smem_desc(smem_b[s] + (k * WGMMA::K) * BLOCK_N, 1);
+                            auto desc_b = make_smem_desc(smem_b[s] + k * WGMMA::K, 1);
                             WGMMA::wgmma(desc_a, desc_b, shifted_accum, 1);
                         }
                         warpgroup_commit_batch();

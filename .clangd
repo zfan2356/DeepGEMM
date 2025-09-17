@@ -1,0 +1,29 @@
+CompileFlags:
+  Compiler: /data/home/xingonzhang/micromamba/envs/dev/bin/nvcc
+  Add:
+    - -xcuda
+    - --cuda-path=/data/home/xingonzhang/micromamba/envs/dev
+    - -I/usr/include
+    - -I/usr/include/x86_64-linux-gnu
+    - -I/data/home/xingonzhang/micromamba/envs/dev/lib/python3.12/site-packages/nvidia/cuda_runtime/include
+    - -I/data/home/xingonzhang/micromamba/envs/dev/lib/python3.12/site-packages/torch/include
+    - -I/data/home/xingonzhang/micromamba/envs/dev/lib/python3.12/site-packages/torch/include/torch/csrc/api/include
+    - -I/data/home/xingonzhang/micromamba/envs/dev/targets/x86_64-linux/include
+    - -I/data/home/xingonzhang/wxg/DeepGEMM/third-party/cutlass/include/cute
+    - -I/data/home/xingonzhang/wxg/DeepGEMM/third-party/cutlass/include/cutlass
+    - -I/data/home/xingonzhang/wxg/DeepGEMM/third-party/cutlass/tools/util/include
+    - -I/data/home/xingonzhang/wxg/DeepGEMM/third-party/fmt/include
+    - -I/data/home/xingonzhang/micromamba/envs/dev/include/python3.12
+    - -I/data/home/xingonzhang/wxg/DeepGEMM/deep_gemm/include
+    - -D__CUDACC__
+    - -D_GNU_SOURCE
+    - -D_POSIX_C_SOURCE=200809L
+    - -pthread
+    - -lcudart
+    - -D__CLION_IDE__
+    - -std=c++20
+Diagnostics:
+  Suppress: 
+    - return-type-c-linkage
+    - unused-includes
+
